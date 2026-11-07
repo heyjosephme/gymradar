@@ -132,7 +132,7 @@ describe('recommend', () => {
 		expect(result.primary?.gym.name).toBe('Gym A');
 		expect(result.confirmedAlternative?.gym.name).toBe('Gym B');
 		expect(result.explanation).toBe(
-			"Gym A is your highest-priority gym that isn't confirmed closed, but its availability couldn't be confirmed. The official page couldn't be loaded (HTTP 503). Check before going. Gym B (your #2) is your highest-priority confirmed option. This recommendation was made without current occupancy information. The official page could not be loaded.",
+			"Gym A is your highest-priority gym that isn't confirmed closed, but its availability couldn't be confirmed. The official page couldn't be loaded (HTTP 503). Check before going. Gym B (your #2) is your highest-priority confirmed option. This recommendation was made without current occupancy information.",
 		);
 	});
 

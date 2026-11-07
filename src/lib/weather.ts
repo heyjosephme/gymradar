@@ -78,6 +78,7 @@ function toWeather(item: OpenMeteoLocation | undefined, retrievedAt: string): We
 	if (!current?.time || typeof current.temperature_2m !== 'number' || typeof current.weather_code !== 'number') return null;
 	const chances = (item?.hourly?.precipitation_probability ?? []).filter((value) => typeof value === 'number');
 	return {
+		code: current.weather_code,
 		description: DESCRIPTIONS[current.weather_code] ?? 'Unknown conditions',
 		temperatureC: current.temperature_2m,
 		precipitationChanceNext3h: chances.length > 0 ? Math.max(...chances) : null,

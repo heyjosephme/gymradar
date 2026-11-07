@@ -50,7 +50,7 @@ function explain(
 			alternative
 				? `${alternative.gym.name} (your #${alternative.rank}) is your highest-priority confirmed option.`
 				: 'None of your other gyms is confirmed suitable either.',
-			crowd ? `Its latest official occupancy reading is ${crowd}.` : withoutOccupancy(occupancy),
+			crowd ? `Its latest official occupancy reading is ${crowd}.` : withoutOccupancy(occupancy, false),
 		);
 		return sentences.join(' ');
 	}
@@ -118,7 +118,8 @@ function crowdReading(occupancy: GymOccupancy): string | null {
 	return `level ${occupancy.officialLevel} of 3 as of ${jstClock(occupancy.observedAt)}`;
 }
 
-function withoutOccupancy(occupancy: GymOccupancy): string {
+function withoutOccupancy(occupancy: GymOccupancy, giveReason = true): string {
+	if (!giveReason) return 'This recommendation was made without current occupancy information.';
 	const why =
 		occupancy.note ??
 		(occupancy.stale && occupancy.observedAt

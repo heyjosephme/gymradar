@@ -96,6 +96,8 @@ export type GymOccupancy = {
 };
 
 export type Weather = {
+	/** WMO weather interpretation code. */
+	code: number;
 	description: string;
 	temperatureC: number;
 	/** Highest hourly chance of precipitation over the next 3 hours, in percent. */

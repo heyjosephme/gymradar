@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Dark mode follows the operating system setting. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@theme inline {
+    --font-sans: var(--font-ibm-plex-sans);
+    --font-heading: var(--font-barlow-condensed);
+    --font-display: var(--font-barlow-condensed);
+    --color-good: var(--good);
+    --color-warning: var(--warning);
+    --color-critical: var(--critical);
+    --color-meter: var(--meter);
+    --color-meter-track: var(--meter-track);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Light: printed station signage. Ink on paper. */
+:root {
+    --background: #f2f1ea;
+    --foreground: #0b0b0b;
+    --card: #fcfcfb;
+    --card-foreground: #0b0b0b;
+    --popover: #fcfcfb;
+    --popover-foreground: #0b0b0b;
+    --primary: #0b0b0b;
+    --primary-foreground: #fcfcfb;
+    --secondary: #e8e7df;
+    --secondary-foreground: #0b0b0b;
+    --muted: #e8e7df;
+    --muted-foreground: #52514e;
+    --accent: #e8e7df;
+    --accent-foreground: #0b0b0b;
+    --destructive: #d03b3b;
+    --border: #dcdbd3;
+    --input: #cfcec6;
+    --ring: #898781;
+    --radius: 0.5rem;
+    /* Status colors are fixed and always paired with an icon and a label. */
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    /* Occupancy meter: one hue, validated as an ordinal pair against the card surface. */
+    --meter: #2a78d6;
+    --meter-track: #86b6ef;
+}
+
+/* Dark: an LED departure board. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0d0d0d;
+        --foreground: #f0efec;
+        --card: #1a1a19;
+        --card-foreground: #f0efec;
+        --popover: #1a1a19;
+        --popover-foreground: #f0efec;
+        --primary: #f0efec;
+        --primary-foreground: #0d0d0d;
+        --secondary: #262624;
+        --secondary-foreground: #f0efec;
+        --muted: #262624;
+        --muted-foreground: #c3c2b7;
+        --accent: #262624;
+        --accent-foreground: #f0efec;
+        --border: #2c2c2a;
+        --input: #383835;
+        --meter: #3987e5;
+        --meter-track: #184f95;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    html {
+        @apply font-sans;
+    }
+    body {
+        @apply bg-background text-foreground antialiased;
+        /* A faint dot matrix, like a signage panel. */
+        background-image: radial-gradient(color-mix(in oklab, var(--foreground) 9%, transparent) 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+}
+
+@layer components {
+    /* Board rows flip into place like a split-flap display. */
+    .flap-in {
+        transform-origin: top center;
+        animation: flap-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        animation-delay: calc(var(--flap-index, 0) * 70ms);
+    }
+
+    .live-dot {
+        animation: live-pulse 2.4s ease-in-out infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .flap-in,
+        .live-dot {
+            animation: none;
+        }
+    }
+}
+
+@keyframes flap-in {
+    from {
+        opacity: 0;
+        transform: perspective(900px) rotateX(-80deg);
+    }
+    to {
+        opacity: 1;
+        transform: perspective(900px) rotateX(0);
+    }
+}
+
+@keyframes live-pulse {
+    50% {
+        opacity: 0.35;
+    }
+}

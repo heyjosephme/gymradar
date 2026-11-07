@@ -10,13 +10,13 @@ Investigated 2026-11-03, 22:40–23:20 JST. Tools: `curl`, Playwright 1.64.1 dri
 | Representation | A text slot (`【HH:MM現在】` or `【営業時間外】`) plus a CSS class `congestion-thresshold{0-3}` (the misspelling is Konami's). Levels 1–3 are wordless pictograms with 1, 2 or 3 of 3 figures lit. Level 0 is hidden. |
 | Scale | **3 levels**, not 5. Konami publishes no text labels and no thresholds. |
 | Meaning | Calculated from check-ins (「チェックインの状況を基に算出しています。」). It is **not** a count of people physically present. |
-| Timestamp | `HH:MM現在` in the page text, JST, no date and no seconds. All 13 samples found fall on :00 or :30. |
+| Timestamp | `HH:MM現在` in the page text, JST, no date and no seconds. All 14 samples found fall on :00 or :30. |
 | Page polling/refresh | **None.** No polling, no meta refresh, and no DOM changes after load. To get a new value you have to request the page again. |
 | Freshness class | **`official_periodic`**. The update cycle appears to be 30 minutes. That is inferred from the samples, not documented by Konami. |
 | Cross-facility | Identical markup on all 7 Konami Sports Club pages checked. There is no widget on the junior-school page, and the Grancise brand uses a different template. |
 | Usable for GymRadar? | Yes. Server-side fetch of `https://information.konamisportsclub.jp/ksc/{code}/` and HTML parsing. This is a public web page, **not a supported API**. |
 
-Business-hours caveat: the investigation ran after closing time on a national holiday (文化の日), which is also Meguro Aobadai's regular closing day (Tuesday). No live reading (`HH:MM現在` with level 1–3) could be observed directly. At the user's request, live observation was skipped. Everything below about the business-hours state comes from the markup, the CSS and search-engine-indexed copies of the pages. Those inferences are labelled as such.
+Business-hours note: the main investigation ran after closing time on a national holiday (文化の日), which is also Meguro Aobadai's regular closing day (Tuesday), so it could only observe the outside-hours state. The business-hours format was first inferred from the markup, the CSS and search-engine-indexed copies of the pages. It was then **confirmed live on Saturday 2026-11-07 at 12:16 JST** on three clubs (§1.1). The widget's behaviour in the minutes around opening and closing is still unobserved.
 
 ## 1. Facility page
 
@@ -49,7 +49,14 @@ Outside business hours (observed live on all 7 Konami Sports Club pages, 2026-11
 <!-- /混雑状況表示 -->
 ```
 
-During business hours (inferred): the second `<li>` reads `【HH:MM現在】`, e.g. `【16:30現在】` (from search-indexed copies of several facility pages). The image `<li>` carries `congestion-thresshold1`, `2` or `3`, which are the only other classes the stylesheet defines.
+During business hours (observed live on 2026-11-07 at 12:16 JST, saved as `src/lib/fixtures/konami-004446-2026-11-07.html`):
+
+```html
+<li>【12:00現在】&nbsp;</li>
+<li class="congestion-img congestion-thresshold2"></li>
+```
+
+That was 目黒青葉台 (level 2). 渋谷 and 恵比寿 showed `【12:00現在】` with `congestion-thresshold1` at the same moment. Level 3 hasn't been seen live, but `congestion-thresshold3` is the only other class the stylesheet defines.
 
 Styling, from `/assets/css/common.css`:
 
@@ -95,7 +102,7 @@ Conclusion: the level and timestamp are computed when the server renders the pag
 ### 1.3 Timestamp semantics and freshness
 
 - `HH:MM現在` means "as of HH:MM" in JST (wall-clock time only). GymRadar treats it as `observedAt` on the current JST date, distinct from `retrievedAt` (when GymRadar fetched the page).
-- Samples of the displayed time: your `22:30現在` plus search-indexed pages showing 18:00 (府中), 13:30 (武蔵境), 15:00 (五反田), 21:00 (船橋), 15:00 (渋谷), 16:00 (奏の杜), 16:00 (北千里), 16:00 (本店西宮アネックス), 12:00 (沖縄), 12:00 (グランサイズ), 16:30 and 11:30. That is 13 samples from 11+ facilities, and **all** fall on :00 or :30. With 10-minute granularity that would happen by chance less than once in a million; with 15-minute granularity, about once in 8,000. The value is most likely recomputed on a 30-minute cycle.
+- Samples of the displayed time: your `22:30現在` plus search-indexed pages showing 18:00 (府中), 13:30 (武蔵境), 15:00 (五反田), 21:00 (船橋), 15:00 (渋谷), 16:00 (奏の杜), 16:00 (北千里), 16:00 (本店西宮アネックス), 12:00 (沖縄), 12:00 (グランサイズ), 16:30 and 11:30, and the live capture at 12:16:40 JST showing 12:00 (about 17 minutes old). That is 14 samples from 11+ facilities, and **all** fall on :00 or :30. With 10-minute granularity that would happen by chance less than once in a million; with 15-minute granularity, about once in 8,000. The value is most likely recomputed on a 30-minute cycle.
 - The official wording 「更新タイミング等によっては実際の状況と異なる場合がございます」 also implies discrete update timings.
 - **Classification: `official_periodic`**, check-in based, with a cycle of probably about 30 minutes. That cycle is inferred, not documented, and not guaranteed. A reading can lag reality by up to one cycle plus the time the server takes to publish it.
 - GymRadar flags a reading as stale when `observedAt` is more than 60 minutes old (two cycles). Stale readings are shown with low confidence. Readings whose timestamp lies in the future relative to the server clock get no `observedAt` and are treated as stale.
@@ -227,7 +234,7 @@ No JSON, XHR, fetch, WebSocket, EventSource or image request carries occupancy d
 1. **Not an API.** GymRadar parses public HTML. Any redesign can break parsing. The parser is strict: anything unexpected becomes `unknown` and is never guessed.
 2. **Check-in based.** The level reflects check-ins (and presumably check-outs), not people counted on the floor. Thresholds are unpublished and may differ by facility.
 3. **Coarse and delayed.** There are 3 levels on an apparent ~30-minute cycle. A busy spike can take up to a cycle to show. Konami itself warns the display may differ from reality.
-4. **Business-hours behaviour not directly observed** in this investigation (see the note at the top). The exact cadence and the widget's behaviour around opening and closing should be confirmed once during opening hours.
+4. **Behaviour around opening and closing not yet observed.** The business-hours format was confirmed live on 2026-11-07, but not what the widget shows in the first minutes after opening or right at closing, and the 30-minute cycle is still inferred rather than watched across a boundary.
 5. **Facility-specific closing times** are free text and configured manually per gym. Kids' school periods that block the pool or locker rooms (e.g. 五反田's [子供スクール時間] note) are only shown, not modelled.
 6. **Hours changes announced only in news posts** are surfaced as titles, not interpreted.
 7. **Calendar horizon** is two months. Holiday data is vendored for 2026–2027 and must be updated yearly (the Cabinet Office publishes the following year each February).

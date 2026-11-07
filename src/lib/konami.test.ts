@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 // Official pages saved on 2026-11-03 around 22:45 JST (after closing on a public holiday).
 import aobadai from './fixtures/konami-004446-2026-11-03.html?raw';
+// The same page during business hours: Saturday 2026-11-07, 12:16 JST.
+import aobadaiOpen from './fixtures/konami-004446-2026-11-07.html?raw';
 import juniorSchool from './fixtures/konami-007701-2026-11-03.html?raw';
 import shibuya from './fixtures/konami-007871-2026-11-03.html?raw';
 import { parseKonamiFacilityPage } from './konami.ts';
@@ -9,9 +11,8 @@ import { parseKonamiFacilityPage } from './konami.ts';
 const OUTSIDE_HOURS_WIDGET = /<li>【営業時間外】&nbsp;<\/li>\s*<li class="congestion-img congestion-thresshold0"><\/li>/;
 
 /**
- * The Aobadai page with the widget as it appears during business hours. No live reading was
- * captured during the investigation; the text format comes from search-indexed copies of
- * facility pages, and the level classes from the site's stylesheet.
+ * The Aobadai page with a business-hours widget swapped in, for levels and malformed states the
+ * live captures don't cover. The format matches the 2026-11-07 capture.
  */
 const withWidget = (text: string, levelClass: string) =>
 	aobadai.replace(OUTSIDE_HOURS_WIDGET, `<li>${text}&nbsp;</li>\r\n    <li class="congestion-img ${levelClass}"></li>`);
@@ -20,6 +21,10 @@ describe('parseKonamiFacilityPage', () => {
 	test('reads the outside-business-hours widget', () => {
 		expect(aobadai).toMatch(OUTSIDE_HOURS_WIDGET);
 		expect(parseKonamiFacilityPage(aobadai).live).toEqual({ kind: 'outside_hours' });
+	});
+
+	test('reads a live business-hours reading', () => {
+		expect(parseKonamiFacilityPage(aobadaiOpen).live).toEqual({ kind: 'reading', asOf: '12:00', level: 2 });
 	});
 
 	test.each([

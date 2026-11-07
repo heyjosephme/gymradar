@@ -1,4 +1,7 @@
 ---
+import { Font } from 'astro:assets';
+import '@/styles/global.css';
+
 interface Props {
 	title: string;
 }
@@ -11,63 +14,15 @@ const { title } = Astro.props;
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width" />
+		<meta name="color-scheme" content="light dark" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
+		<Font cssVariable="--font-barlow-condensed" preload={[{ weight: '700' }]} />
+		<Font cssVariable="--font-ibm-plex-sans" preload={[{ weight: '400' }]} />
 		<title>{title}</title>
 	</head>
 	<body>
 		<slot />
 	</body>
 </html>
-
-<style is:global>
-	:root {
-		color-scheme: light;
-		--page: #f9f9f7;
-		--surface: #fcfcfb;
-		--text-primary: #0b0b0b;
-		--text-secondary: #52514e;
-		--text-muted: #898781;
-		--border: rgba(11, 11, 11, 0.1);
-		--hairline: #e1e0d9;
-		--link: #1c5cab;
-		--accent: #2a78d6;
-		--meter-fill: #2a78d6;
-		--meter-track: #86b6ef;
-		--good: #0ca30c;
-		--warning: #fab219;
-		--critical: #d03b3b;
-	}
-
-	@media (prefers-color-scheme: dark) {
-		:root {
-			color-scheme: dark;
-			--page: #0d0d0d;
-			--surface: #1a1a19;
-			--text-primary: #f0efec;
-			--text-secondary: #c3c2b7;
-			--border: rgba(255, 255, 255, 0.1);
-			--hairline: #2c2c2a;
-			--link: #6da7ec;
-			--accent: #3987e5;
-			--meter-fill: #3987e5;
-			--meter-track: #184f95;
-		}
-	}
-
-	html {
-		background: var(--page);
-		color: var(--text-primary);
-		font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-		line-height: 1.5;
-	}
-
-	body {
-		margin: 0;
-	}
-
-	a {
-		color: var(--link);
-	}
-</style>

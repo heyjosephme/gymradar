@@ -8,6 +8,9 @@ Crowd level, travel time and weather are shown as context. They never reorder yo
 
 ## Running it
 
+Astro renders the page on the server for every request (Node adapter), and the dashboard UI is
+React with [shadcn/ui](https://ui.shadcn.com), Tailwind CSS and lucide icons.
+
 ```sh
 pnpm install
 pnpm dev        # http://localhost:4321
@@ -67,11 +70,11 @@ when occupancy data was missing or stale.
 
 - Konami can change its page markup at any time. The parser reports anything unexpected as
   unknown instead of guessing.
-- How the occupancy widget behaves during business hours (exact update cycle, the first minutes
-  after opening) wasn't observed live, because the investigation ran after closing time. If the
-  widget lags at opening, the gym briefly shows as "Conflicting official signals".
+- The occupancy widget's business-hours format was confirmed live on 2026-11-07, but its behaviour
+  right after opening and at closing hasn't been observed. If it lags at opening, the gym briefly
+  shows "Conflicting signals".
 - Hours changes announced only in news posts are listed on the card but not interpreted.
 - Area last-use rules are configured by hand. Pool closures for kids' classes aren't modelled.
 - Only Konami Sports Club pages using the standard template are supported. Grancise and
   school-only facilities aren't.
-- Test fixtures in `src/lib/fixtures/` are copies of public Konami pages saved on 2026-11-03.
+- Test fixtures in `src/lib/fixtures/` are copies of public Konami pages saved on 2026-11-03 and 2026-11-07.
