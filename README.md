@@ -13,8 +13,11 @@ React with [shadcn/ui](https://ui.shadcn.com), Tailwind CSS and lucide icons.
 
 ```sh
 pnpm install
-pnpm dev        # http://localhost:4321
+pnpm dev        # English at http://localhost:4321, Japanese at http://localhost:4321/ja/
 ```
+
+The page is light by default. The moon button switches to dark mode, and the browser remembers
+the choice.
 
 | Command | Action |
 | :-- | :-- |
@@ -29,6 +32,7 @@ example gyms. Replace them with your own.
 
 For each gym:
 
+- `nameJa` (optional): the name shown on the Japanese page; `name` is used otherwise.
 - `konamiFacilityCode`: from the official page URL, e.g. `…/ksc/004446/`.
 - `coordinates`: used for weather only.
 - `travel`: your usual door-to-door time and mode. GymRadar doesn't compute routes; the card links
@@ -54,6 +58,13 @@ them for one visit, e.g. `/?area=pool&duration=45&depart=19:00`.
 
 Every recommendation comes with an explanation that names the excluded gyms and why. It also says
 when occupancy data was missing or stale.
+
+## Languages
+
+All visible text, including the explanations, comes from the message catalogs in `src/i18n/`.
+`en.ts` is the reference; `ja.ts` must match its shape (TypeScript enforces this), and a test fails
+if any fixed Japanese string is left untranslated. The domain logic passes data, not English
+fragments, to the catalogs, so each language can word whole sentences naturally.
 
 ## Data sources
 

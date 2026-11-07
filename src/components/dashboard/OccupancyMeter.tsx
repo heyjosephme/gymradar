@@ -1,7 +1,8 @@
 import { TriangleAlert } from 'lucide-react';
 import { cn } from 'cn';
-import { OCCUPANCY_LABEL, observedText, SOURCE_LABEL } from '@/lib/present';
+import { observedText } from '@/lib/present';
 import type { GymOccupancy } from '@/lib/types';
+import { useMessages } from './messages';
 
 /** Mirrors Konami's pictogram: N of 3 standing figures lit. */
 function Figures({ level, stale }: { level: 1 | 2 | 3; stale: boolean }) {
@@ -26,35 +27,36 @@ function Figures({ level, stale }: { level: 1 | 2 | 3; stale: boolean }) {
 
 /** Level, source and freshness of the official reading, or an explicit not-applicable/unknown. */
 export function OccupancyMeter({ occupancy, now, size = 'default' }: { occupancy: GymOccupancy; now: Date; size?: 'default' | 'lg' }) {
+	const m = useMessages();
 	const { officialLevel: level, stale } = occupancy;
-	const observed = observedText(occupancy, now);
+	const observed = observedText(occupancy, now, m);
 
 	if (level === null) {
 		return (
 			<div className="min-w-0">
-				<div className={cn('font-medium text-muted-foreground', size === 'lg' && 'text-base')}>{OCCUPANCY_LABEL[occupancy.status]}</div>
-				<div className="text-xs text-muted-foreground">No reading</div>
+				<div className={cn('font-medium text-muted-foreground', size === 'lg' && 'text-base')}>{m.occupancyLabel[occupancy.status]}</div>
+				<div className="text-xs text-muted-foreground">{m.ui.noReading}</div>
 			</div>
 		);
 	}
 
 	return (
 		<div className="min-w-0">
-			<div className="flex items-center gap-2">
+			<div className="flex flex-wrap items-center gap-x-2">
 				<Figures level={level} stale={stale} />
-				<span className={cn('font-semibold', size === 'lg' && 'text-base')}>{OCCUPANCY_LABEL[occupancy.status]}</span>
+				<span className={cn('font-semibold whitespace-nowrap', size === 'lg' && 'text-base')}>{m.occupancyLabel[occupancy.status]}</span>
 				<span className="text-xs text-muted-foreground tabular-nums">{level}/3</span>
 				{stale && (
 					<span className="inline-flex items-center gap-1 text-xs font-semibold">
 						<TriangleAlert className="size-3.5 text-warning" strokeWidth={2.5} aria-hidden />
-						Stale
+						{m.ui.stale}
 					</span>
 				)}
 			</div>
 			<div className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
 				{!stale && <span className="live-dot size-1.5 rounded-full bg-good" aria-hidden />}
 				<span>
-					{SOURCE_LABEL[occupancy.source].short} · <span className="whitespace-nowrap">{observed ?? 'time unknown'}</span>
+					{m.source[occupancy.source].short} · <span className="whitespace-nowrap">{observed ?? m.ui.timeUnknown}</span>
 				</span>
 			</div>
 		</div>

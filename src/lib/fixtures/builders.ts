@@ -1,4 +1,5 @@
 // Builders for tests: synthetic Konami pages and evaluated gyms.
+import { en, type Messages } from '../../i18n/index.ts';
 import { evaluateGym } from '../dashboard.ts';
 import type { KonamiCalendarDay, KonamiFacilityPage } from '../konami.ts';
 import { parseClock } from '../time.ts';
@@ -57,6 +58,7 @@ export function evaluateAll(
 	gyms: { gym: FavoriteGym; page: KonamiFacilityPage | null }[],
 	now: Date,
 	workout: WorkoutPlan,
+	messages: Messages = en,
 ): GymEvaluation[] {
 	return gyms.map(({ gym, page }, index) =>
 		evaluateGym({
@@ -66,6 +68,7 @@ export function evaluateAll(
 			weather: null,
 			now,
 			plan: workout,
+			messages,
 		}),
 	);
 }

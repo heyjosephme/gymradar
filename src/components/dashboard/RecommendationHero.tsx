@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { Droplets } from 'lucide-react';
 import { cn } from 'cn';
-import { AREA_LABEL } from '@/lib/availability';
-import { AREA_SHORT_LABEL, availabilityBadge, TRAVEL_MODE_LABEL } from '@/lib/present';
+import { availabilityBadge } from '@/lib/present';
 import type { GymEvaluation, WorkoutPlan } from '@/lib/types';
 import { AREA_ICON, TRAVEL_ICON, weatherIcon } from './icons';
+import { useMessages } from './messages';
 import { OccupancyMeter } from './OccupancyMeter';
 import { PriorityBadge } from './PriorityBadge';
 import { StatusBadge } from './StatusBadge';
@@ -19,15 +19,16 @@ type Props = {
 
 /** The "next departure" panel: where to go, why, and the few facts that matter on the way out. */
 export function RecommendationHero({ primary, explanation, plan, leaving, now }: Props) {
+	const m = useMessages();
 	const AreaIcon = AREA_ICON[plan.area];
 
 	return (
 		<section aria-labelledby="recommendation" className="flap-in overflow-hidden rounded-xl bg-card ring-2 ring-foreground">
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-foreground px-5 py-2 text-background">
-				<span className="font-display text-sm font-semibold tracking-[0.2em] uppercase">Next up</span>
+				<span className="font-display text-sm font-semibold tracking-[0.2em] uppercase">{m.ui.nextUp}</span>
 				<span className="flex items-center gap-1.5 text-xs tabular-nums">
 					<AreaIcon className="size-3.5" aria-hidden />
-					{plan.durationMinutes} min {AREA_LABEL[plan.area]} · {leaving}
+					{m.ui.planSummary(plan.durationMinutes, plan.area, leaving)}
 				</span>
 			</div>
 
@@ -38,20 +39,20 @@ export function RecommendationHero({ primary, explanation, plan, leaving, now }:
 						<div className="min-w-0">
 							<h2 id="recommendation" className="font-display text-4xl leading-none font-bold sm:text-5xl">
 								<a href={`#gym-${primary.gym.id}`} className="hover:underline">
-									{primary.gym.name}
+									{m.gymName(primary.gym)}
 								</a>
 							</h2>
 							<div className="mt-2 flex flex-wrap gap-2">
-								<StatusBadge badge={availabilityBadge(primary.availability)} />
+								<StatusBadge badge={availabilityBadge(primary.availability, m)} />
 								{primary.suitability.kind === 'unknown' && (
-									<StatusBadge badge={{ tone: 'warning', icon: 'alert', label: 'Check before going' }} />
+									<StatusBadge badge={{ tone: 'warning', icon: 'alert', label: m.badge.checkBeforeGoing }} />
 								)}
 							</div>
 						</div>
 					</div>
 				) : (
 					<h2 id="recommendation" className="font-display text-4xl leading-none font-bold sm:text-5xl">
-						No gym fits this plan
+						{m.ui.noGymFits}
 					</h2>
 				)}
 
@@ -64,6 +65,7 @@ export function RecommendationHero({ primary, explanation, plan, leaving, now }:
 }
 
 function Facts({ evaluation, plan, now }: { evaluation: GymEvaluation; plan: WorkoutPlan; now: Date }) {
+	const m = useMessages();
 	const { gym, availability, suitability, occupancy, weather } = evaluation;
 	const AreaIcon = AREA_ICON[plan.area];
 	const TravelIcon = TRAVEL_ICON[gym.travel.mode];
@@ -72,29 +74,29 @@ function Facts({ evaluation, plan, now }: { evaluation: GymEvaluation; plan: Wor
 
 	return (
 		<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-border sm:grid-cols-4">
-			<Fact label={`${AREA_SHORT_LABEL[plan.area]} closes`}>
+			<Fact label={m.ui.areaCloses(m.areaShort[plan.area])}>
 				<AreaIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
 				<span className="font-display text-2xl font-semibold tabular-nums">{closing ?? '—'}</span>
 			</Fact>
-			<Fact label="Occupancy">
+			<Fact label={m.ui.occupancy}>
 				<OccupancyMeter occupancy={occupancy} now={now} size="lg" />
 			</Fact>
-			<Fact label={`Travel ${TRAVEL_MODE_LABEL[gym.travel.mode]}`}>
+			<Fact label={m.ui.travelBy(m.travelMode[gym.travel.mode])}>
 				<TravelIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-				<span className="font-display text-2xl font-semibold tabular-nums">{gym.travel.minutes} min</span>
+				<span className="font-display text-2xl font-semibold tabular-nums">{m.ui.travelMinutes(gym.travel.minutes)}</span>
 			</Fact>
-			<Fact label="Weather">
+			<Fact label={m.ui.weather}>
 				{weather && WeatherIcon ? (
 					<>
 						<WeatherIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
 						<span className="font-display text-2xl font-semibold tabular-nums">{Math.round(weather.temperatureC)}°</span>
 						<span className="flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
 							<Droplets className="size-3.5" aria-hidden />
-							{weather.precipitationChanceNext3h ?? '—'}%
+							{weather.precipitationChanceNext3h ?? '—'}%<span className="sr-only">{m.ui.rainChance}</span>
 						</span>
 					</>
 				) : (
-					<span className="text-muted-foreground">Unavailable</span>
+					<span className="text-muted-foreground">{m.ui.unavailable}</span>
 				)}
 			</Fact>
 		</dl>

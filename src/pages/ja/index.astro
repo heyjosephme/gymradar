@@ -1,0 +1,10 @@
+---
+// Rendered on every request: availability and occupancy must be current.
+export const prerender = false;
+
+import DashboardPage from '@/components/DashboardPage.astro';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<DashboardPage />

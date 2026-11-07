@@ -1,3 +1,4 @@
+import type { Messages } from '../i18n/index.ts';
 import { assessAvailability, assessSuitability, scheduleFor } from './availability.ts';
 import { fetchKonamiFacility, konamiFacilityUrl, type KonamiFetchResult } from './konami.ts';
 import { konamiOccupancy } from './occupancy.ts';
@@ -14,15 +15,15 @@ export type Dashboard = {
 	recommendation: Recommendation;
 };
 
-export async function loadDashboard(gyms: readonly FavoriteGym[], plan: WorkoutPlan, now: Date): Promise<Dashboard> {
+export async function loadDashboard(gyms: readonly FavoriteGym[], plan: WorkoutPlan, now: Date, messages: Messages): Promise<Dashboard> {
 	const [pages, weather] = await Promise.all([
 		Promise.all(gyms.map((gym) => fetchKonamiFacility(gym.konamiFacilityCode))),
 		fetchWeather(gyms.map((gym) => gym.coordinates)),
 	]);
 	const evaluations = gyms.map((gym, index) =>
-		evaluateGym({ gym, rank: index + 1, fetched: pages[index], weather: weather[index], now, plan }),
+		evaluateGym({ gym, rank: index + 1, fetched: pages[index], weather: weather[index], now, plan, messages }),
 	);
-	return { now, plan, evaluations, recommendation: recommend(evaluations, plan) };
+	return { now, plan, evaluations, recommendation: recommend(evaluations, plan, messages) };
 }
 
 /** Evaluates one gym from already-fetched data. */
@@ -33,16 +34,17 @@ export function evaluateGym(input: {
 	weather: Weather | null;
 	now: Date;
 	plan: WorkoutPlan;
+	messages: Messages;
 }): GymEvaluation {
-	const { gym, fetched, now, plan } = input;
+	const { gym, fetched, now, plan, messages } = input;
 	const jst = toJst(now);
 	const sourceUrl = konamiFacilityUrl(gym.konamiFacilityCode);
 	const retrievedAt = fetched.ok ? fetched.retrievedAt : null;
 	const live = fetched.ok ? fetched.page.live : null;
 	const lastUseMinutesBeforeClose = gym.areas[plan.area]?.lastUseMinutesBeforeClose ?? null;
 	const schedule: DaySchedule = fetched.ok
-		? scheduleFor(fetched.page, jst.date)
-		: { kind: 'unknown', detail: `The official page couldn't be loaded (${fetched.error}).` };
+		? scheduleFor(fetched.page, jst.date, messages)
+		: { kind: 'unknown', detail: messages.schedule.pageUnavailable(fetched.error) };
 
 	const availability = assessAvailability({
 		schedule,
@@ -51,13 +53,21 @@ export function evaluateGym(input: {
 		lastUseMinutesBeforeClose,
 		sourceUrl,
 		retrievedAt,
+		messages,
 	});
 	return {
 		gym,
 		rank: input.rank,
 		availability,
-		suitability: assessSuitability({ schedule, availability, plan, travelMinutes: gym.travel.minutes, lastUseMinutesBeforeClose }),
-		occupancy: konamiOccupancy({ gymId: gym.id, live, availability, today: jst.date, now, retrievedAt, sourceUrl }),
+		suitability: assessSuitability({
+			schedule,
+			availability,
+			plan,
+			travelMinutes: gym.travel.minutes,
+			lastUseMinutesBeforeClose,
+			messages,
+		}),
+		occupancy: konamiOccupancy({ gymId: gym.id, live, availability, today: jst.date, now, retrievedAt, sourceUrl, messages }),
 		weather: input.weather,
 		officialNotes: fetched.ok ? fetched.page.notes : [],
 		scheduleNotices: fetched.ok ? fetched.page.scheduleNotices : [],

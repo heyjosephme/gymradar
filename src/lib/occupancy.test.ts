@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { en } from '../i18n/index.ts';
 import { assessAvailability } from './availability.ts';
 import { at, WEDNESDAY } from './fixtures/builders.ts';
 import type { KonamiLiveStatus } from './konami.ts';
@@ -20,8 +21,9 @@ function occupancyAt(time: string, live: KonamiLiveStatus | null, schedule: DayS
 		lastUseMinutesBeforeClose: 10,
 		sourceUrl: SOURCE,
 		retrievedAt,
+		messages: en,
 	});
-	return konamiOccupancy({ gymId: 'aobadai', live, availability, today: WEDNESDAY, now, retrievedAt, sourceUrl: SOURCE });
+	return konamiOccupancy({ gymId: 'aobadai', live, availability, today: WEDNESDAY, now, retrievedAt, sourceUrl: SOURCE, messages: en });
 }
 
 describe('konamiOccupancy', () => {

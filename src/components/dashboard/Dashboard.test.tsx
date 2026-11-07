@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, test } from 'vitest';
 import { Accordion } from '@/components/ui/accordion';
+import { en, ja, type Locale } from '@/i18n';
 import { at, closedOn, evaluateAll, favoriteGym, konamiPage, plan, WEDNESDAY } from '@/lib/fixtures/builders';
 import type { KonamiFacilityPage } from '@/lib/konami';
 import { recommend } from '@/lib/recommend';
@@ -71,36 +72,42 @@ describe('GymRow', () => {
 	});
 });
 
+function renderDashboard(locale: Locale) {
+	const m = { en, ja }[locale];
+	const now = at(WEDNESDAY, '18:00');
+	const workout = plan('18:00');
+	const evaluations = evaluateAll(
+		[
+			{ gym: favoriteGym('Gym A', { nameJa: 'ジムA' }), page: closedOn(WEDNESDAY) },
+			{ gym: favoriteGym('Gym B', { nameJa: 'ジムB' }), page: konamiPage() },
+		],
+		now,
+		workout,
+		m,
+	);
+	const recommendation = recommend(evaluations, workout, m);
+	const html = renderToString(
+		<Dashboard
+			locale={locale}
+			localeUrls={{ en: '/', ja: '/ja/' }}
+			nowIso={now.toISOString()}
+			clock="18:00"
+			dateLabel="Wed 4 Nov"
+			holiday={null}
+			plan={workout}
+			departValue=""
+			leaving={m.ui.leaveNow}
+			evaluations={evaluations}
+			primaryId={recommendation.primary?.gym.id ?? null}
+			explanation={recommendation.explanation}
+		/>,
+	);
+	return { text: visibleText(html), recommendation };
+}
+
 describe('Dashboard', () => {
 	test('leads with the recommendation and keeps ranks when gyms move to the unavailable section', () => {
-		const now = at(WEDNESDAY, '18:00');
-		const workout = plan('18:00');
-		const evaluations = evaluateAll(
-			[
-				{ gym: favoriteGym('Gym A'), page: closedOn(WEDNESDAY) },
-				{ gym: favoriteGym('Gym B'), page: konamiPage() },
-			],
-			now,
-			workout,
-		);
-		const recommendation = recommend(evaluations, workout);
-
-		const text = visibleText(
-			renderToString(
-				<Dashboard
-					nowIso={now.toISOString()}
-					clock="18:00"
-					dateLabel="Wed 4 Nov"
-					holiday={null}
-					plan={workout}
-					departValue=""
-					leaving="leave now"
-					evaluations={evaluations}
-					primaryId={recommendation.primary?.gym.id ?? null}
-					explanation={recommendation.explanation}
-				/>,
-			),
-		);
+		const { text, recommendation } = renderDashboard('en');
 
 		const hero = text.slice(text.indexOf('Next up'), text.indexOf('Your gyms'));
 		const unavailable = text.slice(text.indexOf('Not available for this workout'));
@@ -108,5 +115,20 @@ describe('Dashboard', () => {
 		expect(hero).toContain(recommendation.explanation);
 		expect(unavailable).toContain('Personal priority # 1 Gym A');
 		expect(unavailable).toContain('Regular closing day');
+	});
+
+	test('renders in Japanese, with Japanese gym names', () => {
+		const { text, recommendation } = renderDashboard('ja');
+
+		const hero = text.slice(text.indexOf('おすすめ'), text.indexOf('お気に入りのジム'));
+		const unavailable = text.slice(text.indexOf('このトレーニングには利用できません'));
+		expect(hero).toContain('優先順位 # 2 ジムB');
+		expect(hero).toContain(recommendation.explanation);
+		expect(recommendation.explanation).toBe(
+			'ジムAは本日、定休日です。ジムB（第2候補）が自動的に最優先のおすすめになりました。営業中で、マシンジムの利用終了22:50までに、60分のトレーニングが収まります。このおすすめは、現在の混雑情報を使わずに判断しています。この施設のページには館内利用状況の表示がありません。',
+		);
+		expect(unavailable).toContain('優先順位 # 1 ジムA');
+		expect(unavailable).toContain('定休日');
+		expect(text).toContain('日本語');
 	});
 });

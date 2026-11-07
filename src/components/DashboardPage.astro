@@ -1,0 +1,45 @@
+---
+import { getRelativeLocaleUrl } from 'astro:i18n';
+import { Dashboard } from '@/components/dashboard/Dashboard';
+import { defaultWorkout, favoriteGyms } from '@/config/gyms';
+import { messages, type Locale } from '@/i18n';
+import Layout from '@/layouts/Layout.astro';
+import { loadDashboard, planFromQuery } from '@/lib/dashboard';
+import { japaneseHolidayName } from '@/lib/holidays';
+import { formatClock, toJst } from '@/lib/time';
+
+// Astro's i18n routing sets the locale from the URL: `/` is English, `/ja/` is Japanese.
+const locale: Locale = Astro.currentLocale === 'ja' ? 'ja' : 'en';
+const m = messages[locale];
+const now = new Date();
+const jst = toJst(now);
+const plan = planFromQuery(Astro.url.searchParams, defaultWorkout, jst.minutes);
+const { evaluations, recommendation } = await loadDashboard(favoriteGyms, plan, now, m);
+
+// Formatted here so the browser, whatever its time zone, hydrates the same text.
+const dateLabel = new Intl.DateTimeFormat(m.dateLocale, { timeZone: 'Asia/Tokyo', weekday: 'short', day: 'numeric', month: 'short' }).format(now);
+const leaving = plan.departMinutes === jst.minutes ? m.ui.leaveNow : m.ui.leaveAtTime(formatClock(plan.departMinutes));
+// Switching language keeps the current plan.
+const localeUrls = {
+	en: getRelativeLocaleUrl('en') + Astro.url.search,
+	ja: getRelativeLocaleUrl('ja') + Astro.url.search,
+};
+---
+
+<Layout title="GymRadar" lang={locale}>
+	<Dashboard
+		client:load
+		locale={locale}
+		localeUrls={localeUrls}
+		nowIso={now.toISOString()}
+		clock={formatClock(jst.minutes)}
+		dateLabel={dateLabel}
+		holiday={japaneseHolidayName(jst.date) ?? null}
+		plan={plan}
+		departValue={Astro.url.searchParams.get('depart') ?? ''}
+		leaving={leaving}
+		evaluations={evaluations}
+		primaryId={recommendation.primary?.gym.id ?? null}
+		explanation={recommendation.explanation}
+	/>
+</Layout>

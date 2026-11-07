@@ -1,3 +1,4 @@
+import type { Messages } from '../i18n/index.ts';
 import type { KonamiLiveStatus } from './konami.ts';
 import { jstInstant, type IsoDate } from './time.ts';
 import type { GymAvailability, GymOccupancy } from './types.ts';
@@ -21,8 +22,9 @@ export function konamiOccupancy(input: {
 	now: Date;
 	retrievedAt: Date | null;
 	sourceUrl: string;
+	messages: Messages;
 }): GymOccupancy {
-	const { live, availability } = input;
+	const { live, availability, messages: m } = input;
 	const base = {
 		gymId: input.gymId,
 		officialLevel: null,
@@ -47,11 +49,11 @@ export function konamiOccupancy(input: {
 	});
 
 	// Checked first so a closed gym never shows a crowd level, even if the widget lags behind.
-	if (availability.status === 'closed') return notApplicable('Closed now, so occupancy does not apply.');
-	if (live === null) return unknown('The official page could not be loaded.');
-	if (live.kind === 'absent') return unknown("This facility's page has no occupancy display.");
-	if (live.kind === 'outside_hours') return notApplicable('Konami reports 営業時間外 (outside business hours).');
-	if (live.kind === 'unrecognized') return unknown(`Unrecognized occupancy display: ${live.text}`, 'official_periodic');
+	if (availability.status === 'closed') return notApplicable(m.occupancy.closed);
+	if (live === null) return unknown(m.occupancy.pageUnavailable);
+	if (live.kind === 'absent') return unknown(m.occupancy.noWidget);
+	if (live.kind === 'outside_hours') return notApplicable(m.occupancy.outsideHours);
+	if (live.kind === 'unrecognized') return unknown(m.occupancy.unrecognized(live.text), 'official_periodic');
 
 	const reading = {
 		...base,
@@ -66,7 +68,7 @@ export function konamiOccupancy(input: {
 			...reading,
 			stale: true,
 			confidence: 'low',
-			note: `The official timestamp (${live.asOf}) is ahead of the current time, so its freshness is unknown.`,
+			note: m.occupancy.futureTimestamp(live.asOf),
 		};
 	}
 	const stale = ageMinutes > STALE_AFTER_MINUTES;

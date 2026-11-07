@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { favoriteGyms } from '../config/gyms.ts';
 import { at, closedOn, evaluateAll, favoriteGym, konamiPage, plan, WEDNESDAY } from './fixtures/builders.ts';
+import { en } from '../i18n/index.ts';
 import { recommend } from './recommend.ts';
 
 const A = favoriteGym('Gym A');
@@ -19,7 +20,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(result.primary?.gym.name).toBe('Gym A');
 		expect(result.skipped).toEqual([]);
@@ -39,7 +40,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(result.primary?.gym.name).toBe('Gym B');
 		expect(result.skipped.map((evaluation) => evaluation.gym.name)).toEqual(['Gym A']);
@@ -63,7 +64,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(result.primary?.gym.name).toBe('Gym C');
 		expect(result.primary?.rank).toBe(3);
@@ -84,7 +85,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(evaluations[0].availability.status).toBe('open');
 		expect(evaluations[0].availability.facilityClosingTime).toBe('22:30');
@@ -106,7 +107,7 @@ describe('recommend', () => {
 			swim,
 		);
 
-		const result = recommend(evaluations, swim);
+		const result = recommend(evaluations, swim, en);
 
 		expect(evaluations[0].suitability).toMatchObject({ kind: 'unsuitable', reason: 'facility_unavailable' });
 		expect(result.primary?.gym.name).toBe('Gym B');
@@ -124,7 +125,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(evaluations[0].availability.status).toBe('unknown');
 		expect(evaluations[0].suitability.kind).toBe('unknown');
@@ -147,7 +148,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(evaluations[0].availability).toMatchObject({ status: 'unknown', reason: 'conflicting_signals' });
 		expect(result.primary?.gym.name).toBe('Gym A');
@@ -167,7 +168,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(evaluations[1].occupancy.status).toBe('quiet');
 		expect(result.primary?.gym.name).toBe('Gym A');
@@ -182,7 +183,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(result.primary?.gym.name).toBe('Gym A');
 		expect(result.primary?.occupancy).toMatchObject({ status: 'unknown', officialLevel: null, observedAt: null });
@@ -200,7 +201,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(result.primary?.occupancy).toMatchObject({ status: 'quiet', stale: true, confidence: 'low' });
 		expect(result.explanation).toContain('The latest official reading (level 1 of 3 as of 16:30) is stale.');
@@ -211,7 +212,7 @@ describe('recommend', () => {
 		const workout = plan('08:30');
 		const evaluations = evaluateAll([{ gym: A, page: konamiPage() }], at(WEDNESDAY, '08:30'), workout);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(result.primary?.availability).toMatchObject({ status: 'closed', reason: 'before_opening' });
 		expect(result.primary?.suitability).toMatchObject({ kind: 'suitable', startAt: '10:00', waitsForOpening: true });
@@ -228,7 +229,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		const result = recommend(evaluations, workout);
+		const result = recommend(evaluations, workout, en);
 
 		expect(result.primary).toBeNull();
 		expect(result.explanation).toBe(
@@ -240,7 +241,7 @@ describe('recommend', () => {
 		const workout = plan('23:10');
 		const evaluations = evaluateAll([{ gym: A, page: konamiPage() }], at(WEDNESDAY, '23:10'), workout);
 
-		expect(recommend(evaluations, workout).explanation).toBe(
+		expect(recommend(evaluations, workout, en).explanation).toBe(
 			'None of your gyms fits a 60-minute machine gym workout leaving at 23:10. Gym A has closed for today (it closed at 23:00).',
 		);
 	});
@@ -253,7 +254,7 @@ describe('recommend', () => {
 			workout,
 		);
 
-		recommend(evaluations, workout);
+		recommend(evaluations, workout, en);
 
 		expect(evaluations.map((evaluation) => [evaluation.rank, evaluation.gym.name])).toEqual([
 			[1, 'Gym A'],

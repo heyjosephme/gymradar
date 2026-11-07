@@ -4,15 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { WorkoutArea, WorkoutPlan } from '@/lib/types';
+import { useMessages } from './messages';
 
 /** The planned workout. A plain GET form, so every plan has a shareable URL. */
 export function PlanBar({ plan, departValue }: { plan: WorkoutPlan; departValue: string }) {
+	const m = useMessages();
 	const [area, setArea] = useState<WorkoutArea>(plan.area);
 
 	return (
 		<form method="get" className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
 			<input type="hidden" name="area" value={area} />
-			<Field label="Workout" group>
+			<Field label={m.ui.workout} group>
 				<ToggleGroup
 					type="single"
 					variant="outline"
@@ -20,22 +22,22 @@ export function PlanBar({ plan, departValue }: { plan: WorkoutPlan; departValue:
 					value={area}
 					onValueChange={(value) => value && setArea(value as WorkoutArea)}
 				>
-					<ToggleGroupItem value="gym" aria-label="Machine gym">
-						<Dumbbell /> Gym
+					<ToggleGroupItem value="gym" aria-label={m.area.gym}>
+						<Dumbbell /> {m.areaShort.gym}
 					</ToggleGroupItem>
-					<ToggleGroupItem value="pool" aria-label="Pool">
-						<Waves /> Pool
+					<ToggleGroupItem value="pool" aria-label={m.area.pool}>
+						<Waves /> {m.areaShort.pool}
 					</ToggleGroupItem>
 				</ToggleGroup>
 			</Field>
-			<Field label="Minutes">
+			<Field label={m.ui.minutes}>
 				<Input type="number" name="duration" min={15} max={240} step={5} defaultValue={plan.durationMinutes} className="w-20 tabular-nums" />
 			</Field>
-			<Field label="Leave at" hint="blank = now">
+			<Field label={m.ui.leaveAt} hint={m.ui.blankIsNow}>
 				<Input type="time" name="depart" defaultValue={departValue} className="w-28 tabular-nums" />
 			</Field>
 			<Button type="submit" className="ml-auto">
-				Update <ArrowRight data-icon="inline-end" />
+				{m.ui.update} <ArrowRight data-icon="inline-end" />
 			</Button>
 		</form>
 	);

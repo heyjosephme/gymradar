@@ -1,15 +1,14 @@
+import type { Messages } from '../i18n/index.ts';
 import { japaneseHolidayName } from './holidays.ts';
 import type { KonamiFacilityPage, KonamiLiveStatus } from './konami.ts';
 import { formatClock, parseClock, weekdayOf, type IsoDate } from './time.ts';
-import type { ClosureReason, DaySchedule, GymAvailability, Suitability, WorkoutArea, WorkoutPlan } from './types.ts';
-
-export const AREA_LABEL: Record<WorkoutArea, string> = { gym: 'machine gym', pool: 'pool' };
+import type { ClosureReason, DaySchedule, GymAvailability, Suitability, WorkoutPlan } from './types.ts';
 
 /**
  * The official schedule for `date`. A day counts as open only when an official source gives
  * hours for it. Not being marked closed is never enough.
  */
-export function scheduleFor(page: KonamiFacilityPage, date: IsoDate): DaySchedule {
+export function scheduleFor(page: KonamiFacilityPage, date: IsoDate, m: Messages): DaySchedule {
 	const special = page.specialDays[date];
 	const day = page.calendar[date];
 	const holidayName = japaneseHolidayName(date);
@@ -19,7 +18,7 @@ export function scheduleFor(page: KonamiFacilityPage, date: IsoDate): DaySchedul
 			return {
 				kind: 'closed',
 				reason: closureReason(day?.closure ?? null, special.note),
-				detail: `Official special-hours table: 「${special.note}」.`,
+				detail: m.schedule.specialClosed(special.note),
 			};
 		}
 		if (special.status !== 'unrecognized' && special.opensAt && special.closesAt) {
@@ -32,43 +31,33 @@ export function scheduleFor(page: KonamiFacilityPage, date: IsoDate): DaySchedul
 			};
 		}
 		// A normal-business row without hours falls through to the regular hours.
-		if (special.status !== 'normal') {
-			return { kind: 'unknown', detail: `The official special-hours table lists 「${special.note}」 without usable hours.` };
-		}
+		if (special.status !== 'normal') return { kind: 'unknown', detail: m.schedule.specialWithoutHours(special.note) };
 	}
 
-	if (!day) return { kind: 'unknown', detail: `${date} is outside the official calendar's range.` };
+	if (!day) return { kind: 'unknown', detail: m.schedule.outsideCalendar(date) };
 	if (day.closure === 'regular') {
-		const rule = page.closingDaysText ? ` (${page.closingDaysText})` : '';
-		return { kind: 'closed', reason: 'regular_closing_day', detail: `Regular closing day on the official calendar${rule}.` };
+		return { kind: 'closed', reason: 'regular_closing_day', detail: m.schedule.regularClosingDay(page.closingDaysText) };
 	}
 	if (day.closure === 'extra') {
-		return {
-			kind: 'closed',
-			reason: closureReason('extra', day.notice ?? ''),
-			detail: `Marked 臨時休館日 (non-regular closure) on the official calendar${day.notice ? `: 「${day.notice}」` : ''}.`,
-		};
+		return { kind: 'closed', reason: closureReason('extra', day.notice ?? ''), detail: m.schedule.extraClosure(day.notice) };
 	}
 	if (day.notice !== null) {
 		// Closure notices aren't always marked as closed days, e.g. 「休館日となります。」.
 		if (/休館日?となります/.test(day.notice)) {
-			return { kind: 'closed', reason: closureReason(null, day.notice), detail: `Official calendar notice: 「${day.notice}」.` };
+			return { kind: 'closed', reason: closureReason(null, day.notice), detail: m.schedule.noticeClosure(day.notice) };
 		}
-		return { kind: 'unknown', detail: `The official calendar has a notice for this day that GymRadar can't interpret: 「${day.notice}」.` };
+		return { kind: 'unknown', detail: m.schedule.noticeUnknown(day.notice) };
 	}
 
-	if (holidayName === undefined) {
-		return { kind: 'unknown', detail: `GymRadar's public-holiday data doesn't cover ${date}, so it can't tell which hours apply.` };
-	}
-	if (!page.regularHours) return { kind: 'unknown', detail: 'The official opening hours could not be read.' };
+	if (holidayName === undefined) return { kind: 'unknown', detail: m.schedule.holidayDataMissing(date) };
+	if (!page.regularHours) return { kind: 'unknown', detail: m.schedule.hoursUnreadable };
 	// On public holidays the 「祝休日」 range applies, whatever the weekday.
 	const weekday = weekdayOf(date);
 	const rules = page.regularHours.filter((rule) => (holidayName ? rule.holidays : rule.weekdays.includes(weekday)));
 	if (rules.length !== 1) {
-		const dayType = holidayName ? 'public holidays' : 'this weekday';
 		return {
 			kind: 'unknown',
-			detail: rules.length === 0 ? `The official hours list no hours for ${dayType}.` : `The official hours list several ranges for ${dayType}.`,
+			detail: rules.length === 0 ? m.schedule.noHours(Boolean(holidayName)) : m.schedule.severalHours(Boolean(holidayName)),
 		};
 	}
 	return { kind: 'open', opensAt: rules[0].opensAt, closesAt: rules[0].closesAt, basis: 'regular_hours', holidayName };
@@ -93,8 +82,9 @@ export function assessAvailability(input: {
 	lastUseMinutesBeforeClose: number | null;
 	sourceUrl: string;
 	retrievedAt: Date | null;
+	messages: Messages;
 }): GymAvailability {
-	const { schedule, live, nowMinutes } = input;
+	const { schedule, live, nowMinutes, messages: m } = input;
 	const base = {
 		openingTime: null,
 		closingTime: null,
@@ -109,7 +99,7 @@ export function assessAvailability(input: {
 				...base,
 				status: 'unknown',
 				reason: 'conflicting_signals',
-				detail: `${schedule.detail} But Konami's live status shows a reading as of ${live.asOf}, so it may be open.`,
+				detail: m.joinSentences([schedule.detail, m.availability.readingOnClosedDay(live.asOf)]),
 			};
 		}
 		return { ...base, status: 'closed', reason: schedule.reason, detail: schedule.detail };
@@ -123,22 +113,42 @@ export function assessAvailability(input: {
 		facilityClosingTime:
 			input.lastUseMinutesBeforeClose === null ? null : formatClock(closes - input.lastUseMinutesBeforeClose),
 	};
-	const hoursKind = schedule.basis === 'special_hours' ? ' Special hours.' : schedule.holidayName ? ` Holiday hours (${schedule.holidayName}).` : '';
+	const hoursKind =
+		schedule.basis === 'special_hours'
+			? [m.availability.specialHours]
+			: schedule.holidayName
+				? [m.availability.holidayHours(schedule.holidayName)]
+				: [];
 	if (nowMinutes < parseClock(schedule.opensAt)) {
-		return { ...hours, status: 'closed', reason: 'before_opening', detail: `Opens at ${schedule.opensAt}.${hoursKind}` };
+		return {
+			...hours,
+			status: 'closed',
+			reason: 'before_opening',
+			detail: m.joinSentences([m.availability.opensAt(schedule.opensAt), ...hoursKind]),
+		};
 	}
 	if (nowMinutes >= closes) {
-		return { ...hours, status: 'closed', reason: 'after_closing', detail: `Closed at ${schedule.closesAt} today.${hoursKind}` };
+		return {
+			...hours,
+			status: 'closed',
+			reason: 'after_closing',
+			detail: m.joinSentences([m.availability.closedAt(schedule.closesAt), ...hoursKind]),
+		};
 	}
 	if (live?.kind === 'outside_hours') {
 		return {
 			...hours,
 			status: 'unknown',
 			reason: 'conflicting_signals',
-			detail: `The official schedule says open until ${schedule.closesAt}, but Konami's live status shows 営業時間外 (outside business hours). It may be closed unexpectedly.`,
+			detail: m.availability.outsideHoursWhileOpen(schedule.closesAt),
 		};
 	}
-	return { ...hours, status: 'open', reason: 'within_hours', detail: `Open until ${schedule.closesAt}.${hoursKind}` };
+	return {
+		...hours,
+		status: 'open',
+		reason: 'within_hours',
+		detail: m.joinSentences([m.availability.openUntil(schedule.closesAt), ...hoursKind]),
+	};
 }
 
 /** Whether the planned workout fits in today's hours, from departure through the area's last-use time. */
@@ -149,14 +159,14 @@ export function assessSuitability(input: {
 	travelMinutes: number;
 	/** Null when the gym doesn't have the planned area. */
 	lastUseMinutesBeforeClose: number | null;
+	messages: Messages;
 }): Suitability {
-	const { schedule, availability, plan } = input;
+	const { schedule, availability, plan, messages: m } = input;
 	if (availability.reason === 'conflicting_signals') return { kind: 'unknown', detail: availability.detail };
 	if (schedule.kind === 'unknown') return { kind: 'unknown', detail: schedule.detail };
 	if (schedule.kind === 'closed') return { kind: 'unsuitable', reason: schedule.reason, detail: schedule.detail };
-	const area = AREA_LABEL[plan.area];
 	if (input.lastUseMinutesBeforeClose === null) {
-		return { kind: 'unsuitable', reason: 'facility_unavailable', detail: `This gym has no ${area}.` };
+		return { kind: 'unsuitable', reason: 'facility_unavailable', detail: m.suitability.noArea(plan.area) };
 	}
 
 	const arrival = plan.departMinutes + input.travelMinutes;
@@ -165,7 +175,7 @@ export function assessSuitability(input: {
 		return {
 			kind: 'unsuitable',
 			reason: 'outside_operating_hours',
-			detail: `Closes at ${schedule.closesAt}, and you would arrive at ${formatClock(arrival)}.`,
+			detail: m.suitability.closedBeforeArrival(schedule.closesAt, formatClock(arrival)),
 		};
 	}
 	const start = Math.max(arrival, parseClock(schedule.opensAt));
@@ -175,7 +185,13 @@ export function assessSuitability(input: {
 		return {
 			kind: 'unsuitable',
 			reason: 'insufficient_time',
-			detail: `The ${area} closes at ${formatClock(areaCloses)}. Starting at ${formatClock(start)} leaves ${Math.max(0, minutesAvailable)} of your planned ${plan.durationMinutes} minutes.`,
+			detail: m.suitability.notEnoughTime(
+				plan.area,
+				formatClock(areaCloses),
+				formatClock(start),
+				Math.max(0, minutesAvailable),
+				plan.durationMinutes,
+			),
 		};
 	}
 	return {

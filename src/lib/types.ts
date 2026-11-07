@@ -6,6 +6,8 @@ export type TravelMode = 'walking' | 'bicycling' | 'transit' | 'driving';
 export type FavoriteGym = {
 	id: string;
 	name: string;
+	/** Name shown in the Japanese UI. Defaults to `name`. */
+	nameJa?: string;
 	/** The code in the official page URL: https://information.konamisportsclub.jp/ksc/{code}/ */
 	konamiFacilityCode: string;
 	coordinates: { latitude: number; longitude: number };
@@ -96,9 +98,8 @@ export type GymOccupancy = {
 };
 
 export type Weather = {
-	/** WMO weather interpretation code. */
+	/** WMO weather interpretation code; the UI words it per language. */
 	code: number;
-	description: string;
 	temperatureC: number;
 	/** Highest hourly chance of precipitation over the next 3 hours, in percent. */
 	precipitationChanceNext3h: number | null;

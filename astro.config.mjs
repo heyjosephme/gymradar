@@ -13,6 +13,12 @@ export default defineConfig({
 	// The dashboard fetches official gym data on every request, so it is rendered on demand.
 	adapter: node({ mode: 'standalone' }),
 	integrations: [react()],
+	// English at `/`, Japanese at `/ja/`. Messages live in src/i18n.
+	i18n: {
+		locales: ['en', 'ja'],
+		defaultLocale: 'en',
+		routing: { prefixDefaultLocale: false },
+	},
 	vite: {
 		plugins: [tailwindcss()],
 	},

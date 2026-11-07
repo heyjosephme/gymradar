@@ -4,22 +4,28 @@ import '@/styles/global.css';
 
 interface Props {
 	title: string;
+	lang: string;
 }
 
-const { title } = Astro.props;
+const { title, lang } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width" />
-		<meta name="color-scheme" content="light dark" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
 		<Font cssVariable="--font-barlow-condensed" preload={[{ weight: '700' }]} />
 		<Font cssVariable="--font-ibm-plex-sans" preload={[{ weight: '400' }]} />
+		<script is:inline>
+			// Light is the default. Apply a saved dark choice before first paint so the page doesn't flash.
+			try {
+				if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+			} catch {}
+		</script>
 		<title>{title}</title>
 	</head>
 	<body>

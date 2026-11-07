@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { en } from '../i18n/index.ts';
 import { assessAvailability, assessSuitability, scheduleFor } from './availability.ts';
 import { closedOn, konamiPage, plan, WEDNESDAY } from './fixtures/builders.ts';
 import aobadaiHtml from './fixtures/konami-004446-2026-11-03.html?raw';
@@ -19,54 +20,54 @@ describe('scheduleFor', () => {
 		['2026-12-28', 'a date in the special-hours table', '10:00', '23:00'],
 		['2027-01-04', 'a special-hours date beyond the calendar', '10:00', '23:00'],
 	])('Aobadai %s (%s) is open %s–%s', (date, _, opensAt, closesAt) => {
-		expect(scheduleFor(aobadai, date)).toMatchObject({ kind: 'open', opensAt, closesAt });
+		expect(scheduleFor(aobadai, date, en)).toMatchObject({ kind: 'open', opensAt, closesAt });
 	});
 
 	test('public holidays use the holiday hours, even on a weekday', () => {
 		// 2026-11-23 is a Monday and 勤労感謝の日; Aobadai's Monday hours would run until 23:00.
-		expect(scheduleFor(aobadai, '2026-11-23')).toEqual({
+		expect(scheduleFor(aobadai, '2026-11-23', en)).toEqual({
 			kind: 'open',
 			opensAt: '10:00',
 			closesAt: '21:00',
 			basis: 'regular_hours',
 			holidayName: '勤労感謝の日',
 		});
-		expect(scheduleFor(shibuya, '2026-11-23')).toMatchObject({ kind: 'open', closesAt: '20:00' });
+		expect(scheduleFor(shibuya, '2026-11-23', en)).toMatchObject({ kind: 'open', closesAt: '20:00' });
 	});
 
 	test('a regular closing day is closed, even when it is a public holiday', () => {
 		// 2026-11-03 is a Tuesday (Aobadai's closing day) and 文化の日.
-		expect(scheduleFor(aobadai, '2026-11-03')).toEqual({
+		expect(scheduleFor(aobadai, '2026-11-03', en)).toEqual({
 			kind: 'closed',
 			reason: 'regular_closing_day',
 			detail: 'Regular closing day on the official calendar (毎週火曜日、お盆、年末年始等).',
 		});
-		expect(scheduleFor(shibuya, '2026-11-06')).toMatchObject({ kind: 'closed', reason: 'regular_closing_day' });
+		expect(scheduleFor(shibuya, '2026-11-06', en)).toMatchObject({ kind: 'closed', reason: 'regular_closing_day' });
 	});
 
 	test('year-end closures are special closures', () => {
-		expect(scheduleFor(aobadai, '2026-12-30')).toEqual({
+		expect(scheduleFor(aobadai, '2026-12-30', en)).toEqual({
 			kind: 'closed',
 			reason: 'special_closure',
 			detail: 'Official special-hours table: 「年末年始特別休館」.',
 		});
-		expect(scheduleFor(aobadai, '2027-01-02')).toMatchObject({ kind: 'closed', reason: 'special_closure' });
+		expect(scheduleFor(aobadai, '2027-01-02', en)).toMatchObject({ kind: 'closed', reason: 'special_closure' });
 	});
 
 	test('a non-regular closure without a stated cause is a temporary closure', () => {
 		const temporary = konamiPage({ calendar: { [WEDNESDAY]: { closure: 'extra', notice: null } } });
-		expect(scheduleFor(temporary, WEDNESDAY)).toMatchObject({ kind: 'closed', reason: 'temporary_closure' });
+		expect(scheduleFor(temporary, WEDNESDAY, en)).toMatchObject({ kind: 'closed', reason: 'temporary_closure' });
 	});
 
 	test('special hours replace the regular hours', () => {
 		const special = konamiPage({
 			specialDays: { [WEDNESDAY]: { status: 'special', opensAt: '10:00', closesAt: '18:00', note: '特別営業' } },
 		});
-		expect(scheduleFor(special, WEDNESDAY)).toMatchObject({ kind: 'open', closesAt: '18:00', basis: 'special_hours' });
+		expect(scheduleFor(special, WEDNESDAY, en)).toMatchObject({ kind: 'open', closesAt: '18:00', basis: 'special_hours' });
 	});
 
 	test('a notice announcing a closure means closed, even without a closed-day mark', () => {
-		expect(scheduleFor(juniorSchool, '2026-12-29')).toMatchObject({ kind: 'closed' });
+		expect(scheduleFor(juniorSchool, '2026-12-29', en)).toMatchObject({ kind: 'closed' });
 	});
 
 	test.each([
@@ -76,12 +77,12 @@ describe('scheduleFor', () => {
 		['hours that could not be read', konamiPage({ regularHours: null }), WEDNESDAY],
 		['a weekday without listed hours', konamiPage({ regularHours: [] }), WEDNESDAY],
 	])('a day is unknown, not open, when it is %s', (_, facility, date) => {
-		expect(scheduleFor(facility, date).kind).toBe('unknown');
+		expect(scheduleFor(facility, date, en).kind).toBe('unknown');
 	});
 
 	test('a day is unknown when the holiday data does not cover it', () => {
 		const nextDecade = konamiPage({ calendar: { '2030-01-09': { closure: null, notice: null } } });
-		expect(scheduleFor(nextDecade, '2030-01-09')).toMatchObject({
+		expect(scheduleFor(nextDecade, '2030-01-09', en)).toMatchObject({
 			kind: 'unknown',
 			detail: expect.stringContaining('public-holiday data'),
 		});
@@ -97,6 +98,7 @@ const availabilityAt = (time: string, schedule: DaySchedule, live: KonamiLiveSta
 		lastUseMinutesBeforeClose: 10,
 		sourceUrl: 'https://information.konamisportsclub.jp/ksc/004446/',
 		retrievedAt: new Date('2026-11-04T09:00:00Z'),
+		messages: en,
 	});
 
 describe('assessAvailability', () => {
@@ -118,7 +120,7 @@ describe('assessAvailability', () => {
 	});
 
 	test('is unknown when the live status shows a reading on a closed day', () => {
-		const closed = scheduleFor(closedOn(WEDNESDAY), WEDNESDAY);
+		const closed = scheduleFor(closedOn(WEDNESDAY), WEDNESDAY, en);
 		expect(availabilityAt('18:00', closed, { kind: 'reading', asOf: '18:00', level: 2 })).toMatchObject({
 			status: 'unknown',
 			reason: 'conflicting_signals',
@@ -126,7 +128,7 @@ describe('assessAvailability', () => {
 	});
 
 	test('keeps the closure reason on a closed day', () => {
-		const closed = scheduleFor(closedOn(WEDNESDAY), WEDNESDAY);
+		const closed = scheduleFor(closedOn(WEDNESDAY), WEDNESDAY, en);
 		expect(availabilityAt('18:00', closed, { kind: 'outside_hours' })).toMatchObject({ status: 'closed', reason: 'regular_closing_day' });
 	});
 });
@@ -139,6 +141,7 @@ describe('assessSuitability', () => {
 			plan: plan(depart, { durationMinutes }),
 			travelMinutes: 10,
 			lastUseMinutesBeforeClose,
+			messages: en,
 		});
 
 	test('fits when the area stays open for the whole workout', () => {
