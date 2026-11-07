@@ -1,0 +1,260 @@
+---
+import { AREA_LABEL } from '../lib/availability.ts';
+import {
+	availabilityBadge,
+	directionsUrl,
+	observedText,
+	SOURCE_LABEL,
+	suitabilityBadge,
+	TRAVEL_MODE_LABEL,
+} from '../lib/present.ts';
+import { jstClock } from '../lib/time.ts';
+import type { GymEvaluation, WorkoutPlan } from '../lib/types.ts';
+import OccupancyMeter from './OccupancyMeter.astro';
+import StatusBadge from './StatusBadge.astro';
+
+interface Props {
+	evaluation: GymEvaluation;
+	plan: WorkoutPlan;
+	now: Date;
+	recommended?: boolean;
+}
+
+const { evaluation, plan, now, recommended = false } = Astro.props;
+const { gym, rank, availability, suitability, occupancy, weather } = evaluation;
+const area = AREA_LABEL[plan.area];
+const areaTitle = area.charAt(0).toUpperCase() + area.slice(1);
+const areaRule = gym.areas[plan.area];
+
+const facilityClosing = !areaRule
+	? `This gym has no ${area}`
+	: availability.facilityClosingTime
+		? `${availability.facilityClosingTime} (${areaRule.lastUseMinutesBeforeClose} min before closing)`
+		: '—';
+const workoutDetail =
+	suitability.kind === 'suitable'
+		? `Start ${suitability.startAt}${suitability.waitsForOpening ? ' when it opens' : ''}, with ${suitability.minutesAvailable} min until the ${area} closes.`
+		: suitability.detail;
+const observed = observedText(occupancy, now);
+---
+
+<article class:list={['card', { recommended }]} id={`gym-${gym.id}`}>
+	<header class="preference">
+		<span class="rank" aria-hidden="true">#{rank}</span>
+		<div>
+			<h3>{gym.name}</h3>
+			<p>Personal priority #{rank}{recommended && <strong class="recommended-tag"> · Recommended</strong>}</p>
+		</div>
+	</header>
+
+	<section class="conditions" aria-label={`Current conditions at ${gym.name}`}>
+		<h4>Current conditions</h4>
+		<dl>
+			<div>
+				<dt>Availability</dt>
+				<dd><StatusBadge badge={availabilityBadge(availability)} /> <span class="detail">{availability.detail}</span></dd>
+			</div>
+			<div>
+				<dt>Today's hours</dt>
+				<dd>{availability.openingTime ? `${availability.openingTime}–${availability.closingTime}` : '—'}</dd>
+			</div>
+			<div>
+				<dt>{areaTitle} last use</dt>
+				<dd>{facilityClosing}</dd>
+			</div>
+			<div>
+				<dt>Your workout</dt>
+				<dd>
+					<StatusBadge badge={suitabilityBadge(suitability)} />
+					{workoutDetail !== availability.detail && <span class="detail">{workoutDetail}</span>}
+				</dd>
+			</div>
+			<div>
+				<dt>Occupancy</dt>
+				<dd><OccupancyMeter occupancy={occupancy} />{occupancy.note && <span class="detail">{occupancy.note}</span>}</dd>
+			</div>
+			<div>
+				<dt>Occupancy source</dt>
+				<dd>{SOURCE_LABEL[occupancy.source]}</dd>
+			</div>
+			<div>
+				<dt>Occupancy updated</dt>
+				<dd>
+					{observed ?? '—'}
+					{occupancy.stale && <span class="detail">Stale: this reading may not reflect current crowding.</span>}
+				</dd>
+			</div>
+			<div>
+				<dt>Travel</dt>
+				<dd>
+					About {gym.travel.minutes} min {TRAVEL_MODE_LABEL[gym.travel.mode]} (your estimate){' · '}
+					<a href={directionsUrl(gym.coordinates, gym.travel.mode)} rel="noreferrer">Directions</a>
+				</dd>
+			</div>
+			<div>
+				<dt>Weather</dt>
+				<dd>
+					{
+						weather ? (
+							<>
+								{weather.description}, {weather.temperatureC.toFixed(1)} °C
+								{weather.precipitationChanceNext3h !== null && ` · ${weather.precipitationChanceNext3h}% chance of rain in the next 3 h`}
+								<span class="detail">Open-Meteo, {jstClock(weather.observedAt)}</span>
+							</>
+						) : (
+							'Unavailable'
+						)
+					}
+				</dd>
+			</div>
+		</dl>
+	</section>
+
+	{
+		evaluation.scheduleNotices.length > 0 && (
+			<section class="notices">
+				<h4>Official notices that may change hours</h4>
+				<ul>
+					{evaluation.scheduleNotices.map((notice) => (
+						<li lang="ja">{notice}</li>
+					))}
+				</ul>
+			</section>
+		)
+	}
+
+	{
+		(evaluation.officialNotes.length > 0 || evaluation.closingDaysText) && (
+			<details>
+				<summary>Official notes</summary>
+				<ul lang="ja">
+					{evaluation.closingDaysText && <li>[休館日] {evaluation.closingDaysText}</li>}
+					{evaluation.officialNotes.map((note) => (
+						<li>
+							[{note.title}] {note.text}
+						</li>
+					))}
+				</ul>
+			</details>
+		)
+	}
+
+	<footer>
+		<a href={availability.sourceUrl} rel="noreferrer">Official page</a>
+		{` · ${availability.retrievedAt ? `fetched ${jstClock(availability.retrievedAt)}` : 'could not be fetched'}`}
+	</footer>
+</article>
+
+<style>
+	.card {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		padding: 1rem 1.25rem;
+	}
+
+	.card.recommended {
+		border: 2px solid var(--accent);
+	}
+
+	.preference {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.rank {
+		display: grid;
+		place-items: center;
+		min-width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 50%;
+		background: var(--text-primary);
+		color: var(--surface);
+		font-weight: 700;
+	}
+
+	h3 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+
+	.preference p {
+		margin: 0;
+		color: var(--text-secondary);
+	}
+
+	.recommended-tag {
+		color: var(--text-primary);
+	}
+
+	.conditions {
+		margin-top: 1rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid var(--hairline);
+	}
+
+	h4 {
+		margin: 0 0 0.5rem;
+		font-size: 0.8rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--text-secondary);
+	}
+
+	dl {
+		display: grid;
+		grid-template-columns: max-content 1fr;
+		gap: 0.4rem 1rem;
+		margin: 0;
+	}
+
+	dl > div {
+		display: contents;
+	}
+
+	dt {
+		color: var(--text-secondary);
+	}
+
+	dd {
+		margin: 0;
+	}
+
+	.detail {
+		display: block;
+		color: var(--text-secondary);
+		font-size: 0.9rem;
+	}
+
+	.notices {
+		margin-top: 1rem;
+	}
+
+	.notices ul,
+	details ul {
+		margin: 0.25rem 0 0;
+		padding-left: 1.25rem;
+	}
+
+	details {
+		margin-top: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	footer {
+		margin-top: 0.75rem;
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+	}
+
+	@media (max-width: 30rem) {
+		dl {
+			grid-template-columns: 1fr;
+		}
+
+		dd {
+			margin-bottom: 0.25rem;
+		}
+	}
+</style>

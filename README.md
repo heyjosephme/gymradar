@@ -1,46 +1,77 @@
-# Astro Starter Kit: Basics
+# GymRadar
+
+A personal dashboard for deciding which of your favorite gyms to visit today or right now.
+
+**Personal preference > crowd level > travel time > weather.** GymRadar recommends your
+highest-priority gym that isn't confirmed closed or unsuitable for your planned workout.
+Crowd level, travel time and weather are shown as context. They never reorder your ranking.
+
+## Running it
 
 ```sh
-pnpm create astro@latest -- --template basics
+pnpm install
+pnpm dev        # http://localhost:4321
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+| Command | Action |
+| :-- | :-- |
+| `pnpm test` | Unit and component tests (Vitest) |
+| `pnpm astro check` | Type-check |
+| `pnpm build` then `node dist/server/entry.mjs` | Production server (Node adapter, rendered per request) |
 
-## 🚀 Project Structure
+## Configuring your gyms
 
-Inside of your Astro project, you'll see the following folders and files:
+Edit `src/config/gyms.ts`. **The order of the list is your priority order.** The file ships with
+example gyms. Replace them with your own.
 
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
-```
+For each gym:
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+- `konamiFacilityCode`: from the official page URL, e.g. `…/ksc/004446/`.
+- `coordinates`: used for weather only.
+- `travel`: your usual door-to-door time and mode. GymRadar doesn't compute routes; the card links
+  to Google Maps directions.
+- `areas`: each workout area the gym has (`gym`, `pool`), with its last-use time in minutes before
+  closing, copied from the 営業時間 notes on the official page. Leave out areas the gym doesn't have.
 
-## 🧞 Commands
+`defaultWorkout` sets your usual area and duration. The form at the top of the dashboard changes
+them for one visit, e.g. `/?area=pool&duration=45&depart=19:00`.
 
-All commands are run from the root of the project, from a terminal:
+## How a recommendation is made
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
+1. **Today's official schedule** for each gym comes from its Konami page: the special-hours
+   table, then the two-month business calendar, then the regular hours. On public holidays the
+   holiday (祝休日) hours apply. A day counts as open only when an official source gives hours
+   for it.
+2. **Exclude** gyms that are confirmed closed or can't fit the workout: closed today, closed by
+   the time you'd arrive, missing the area, or the area's last-use time leaves too little time.
+3. **Recommend the highest-ranked remaining gym.** If its status can't be confirmed (the official
+   page failed to load, a calendar notice GymRadar can't interpret, or Konami's live status
+   contradicting the schedule), it keeps its place but is flagged "check before going". The
+   highest-ranked *confirmed* gym is named as well.
 
-## 👀 Want to learn more?
+Every recommendation comes with an explanation that names the excluded gyms and why. It also says
+when occupancy data was missing or stale.
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+## Data sources
+
+- **Konami facility pages** (public HTML, not an API): occupancy (館内利用状況), hours, calendar,
+  special hours and notes, all from one request per gym, cached for 5 minutes. Occupancy is
+  calculated from check-ins on a 3-level scale and appears to update about every 30 minutes.
+  Readings older than 60 minutes are marked stale, and closed gyms show occupancy as "Not
+  applicable". The investigation behind this is in [docs/konami-data-sources.md](docs/konami-data-sources.md).
+- **Public holidays**: the Cabinet Office list, vendored in `src/lib/holidays.ts` for 2026–2027.
+  Add the next year when it's published each February. Dates outside the list show as unconfirmed.
+- **Weather**: [Open-Meteo](https://open-meteo.com) (no API key).
+
+## Limitations
+
+- Konami can change its page markup at any time. The parser reports anything unexpected as
+  unknown instead of guessing.
+- How the occupancy widget behaves during business hours (exact update cycle, the first minutes
+  after opening) wasn't observed live, because the investigation ran after closing time. If the
+  widget lags at opening, the gym briefly shows as "Conflicting official signals".
+- Hours changes announced only in news posts are listed on the card but not interpreted.
+- Area last-use rules are configured by hand. Pool closures for kids' classes aren't modelled.
+- Only Konami Sports Club pages using the standard template are supported. Grancise and
+  school-only facilities aren't.
+- Test fixtures in `src/lib/fixtures/` are copies of public Konami pages saved on 2026-11-03.

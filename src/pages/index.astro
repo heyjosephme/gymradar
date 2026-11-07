@@ -1,11 +1,246 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+// Rendered on every request: availability and occupancy must be current.
+export const prerender = false;
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import GymCard from '../components/GymCard.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { defaultWorkout, favoriteGyms } from '../config/gyms.ts';
+import Layout from '../layouts/Layout.astro';
+import { AREA_LABEL } from '../lib/availability.ts';
+import { loadDashboard, planFromQuery } from '../lib/dashboard.ts';
+import { japaneseHolidayName } from '../lib/holidays.ts';
+import { formatClock, toJst } from '../lib/time.ts';
+
+const now = new Date();
+const jst = toJst(now);
+const plan = planFromQuery(Astro.url.searchParams, defaultWorkout, jst.minutes);
+const { evaluations, recommendation } = await loadDashboard(favoriteGyms, plan, now);
+const { primary } = recommendation;
+
+// Both lists keep the saved priority order; unsuitable gyms only move to their own section.
+const available = evaluations.filter((evaluation) => evaluation.suitability.kind !== 'unsuitable');
+const unavailable = evaluations.filter((evaluation) => evaluation.suitability.kind === 'unsuitable');
+
+const holiday = japaneseHolidayName(jst.date);
+const today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tokyo', weekday: 'long', day: 'numeric', month: 'long' }).format(now);
+const leaving = plan.departMinutes === jst.minutes ? 'leaving now' : `leaving at ${formatClock(plan.departMinutes)}`;
+
+Astro.response.headers.set('Cache-Control', 'no-store');
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="GymRadar">
+	<main>
+		<header class="masthead">
+			<h1>GymRadar</h1>
+			<p>{today}, {formatClock(jst.minutes)} JST{holiday && ` · ${holiday} (public holiday)`}</p>
+		</header>
+
+		<form class="plan" method="get">
+			<label>
+				Workout
+				<select name="area">
+					<option value="gym" selected={plan.area === 'gym'}>Machine gym</option>
+					<option value="pool" selected={plan.area === 'pool'}>Pool</option>
+				</select>
+			</label>
+			<label>
+				Minutes
+				<input type="number" name="duration" min="15" max="240" step="5" value={plan.durationMinutes} />
+			</label>
+			<label>
+				Leave at
+				<input type="time" name="depart" value={Astro.url.searchParams.get('depart') ?? ''} />
+				<small>blank = now</small>
+			</label>
+			<button type="submit">Update</button>
+		</form>
+
+		<section class="recommendation" aria-labelledby="recommendation-title">
+			<p class="eyebrow">Recommendation for a {plan.durationMinutes}-minute {AREA_LABEL[plan.area]} workout, {leaving}</p>
+			{
+				primary ? (
+					<h2 id="recommendation-title">
+						<a href={`#gym-${primary.gym.id}`}>{primary.gym.name}</a>{' '}
+						<span class="rank">your #{primary.rank}</span>
+					</h2>
+				) : (
+					<h2 id="recommendation-title">No gym fits this plan</h2>
+				)
+			}
+			{
+				primary?.suitability.kind === 'unknown' && (
+					<StatusBadge badge={{ tone: 'warning', icon: '?', label: 'Unconfirmed: check before going' }} />
+				)
+			}
+			<p class="explanation">{recommendation.explanation}</p>
+		</section>
+
+		{
+			evaluations.length === 0 ? (
+				<p>No favorite gyms yet. Add them, in order of preference, in src/config/gyms.ts.</p>
+			) : (
+				<>
+					{available.length > 0 && (
+						<section aria-labelledby="gyms-title">
+							<h2 id="gyms-title">Your gyms</h2>
+							<p class="section-note">In your priority order. Current conditions never change it.</p>
+							<ol class="cards">
+								{available.map((evaluation) => (
+									<li>
+										<GymCard evaluation={evaluation} plan={plan} now={now} recommended={evaluation === primary} />
+									</li>
+								))}
+							</ol>
+						</section>
+					)}
+					{unavailable.length > 0 && (
+						<section aria-labelledby="unavailable-title">
+							<h2 id="unavailable-title">Not available for this workout</h2>
+							<p class="section-note">Closed, or the workout doesn't fit. Shown for reference.</p>
+							<ol class="cards">
+								{unavailable.map((evaluation) => (
+									<li>
+										<GymCard evaluation={evaluation} plan={plan} now={now} />
+									</li>
+								))}
+							</ol>
+						</section>
+					)}
+				</>
+			)
+		}
+
+		<footer class="sources">
+			<h2>About the data</h2>
+			<ul>
+				<li>
+					Occupancy is Konami's official 館内利用状況, calculated from check-ins (not a head count). It has 3 levels and
+					appears to update about every 30 minutes. Konami notes it can differ from actual conditions. Readings older than
+					60 minutes are marked stale.
+				</li>
+				<li>
+					Hours and closures come from each club's official page: regular hours, the business calendar, and the special
+					hours table. Public holidays come from the Cabinet Office list (2026–2027). Days without official hours show as
+					unconfirmed, never as open.
+				</li>
+				<li>Travel times are your own estimates from the config. Weather is from Open-Meteo.</li>
+				<li>Details and limitations: docs/konami-data-sources.md.</li>
+			</ul>
+		</footer>
+	</main>
 </Layout>
+
+<style>
+	main {
+		max-width: 52rem;
+		margin: 0 auto;
+		padding: 1.5rem 1rem 3rem;
+	}
+
+	.masthead h1 {
+		margin: 0;
+		font-size: 1.5rem;
+	}
+
+	.masthead p {
+		margin: 0;
+		color: var(--text-secondary);
+	}
+
+	.plan {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 0.75rem 1.25rem;
+		margin: 1.25rem 0;
+		padding: 0.75rem 1rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+	}
+
+	.plan label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+	}
+
+	.plan input,
+	.plan select,
+	.plan button {
+		font: inherit;
+		color: var(--text-primary);
+	}
+
+	.plan input[type='number'] {
+		width: 5rem;
+	}
+
+	.recommendation {
+		margin-bottom: 2rem;
+		padding: 1.25rem;
+		background: var(--surface);
+		border: 2px solid var(--accent);
+		border-radius: 12px;
+	}
+
+	.eyebrow {
+		margin: 0;
+		color: var(--text-secondary);
+	}
+
+	.recommendation h2 {
+		margin: 0.25rem 0 0.5rem;
+		font-size: 2rem;
+		line-height: 1.2;
+	}
+
+	.recommendation h2 a {
+		color: inherit;
+	}
+
+	.recommendation .rank {
+		font-size: 1rem;
+		font-weight: 400;
+		color: var(--text-secondary);
+	}
+
+	.explanation {
+		margin: 0.75rem 0 0;
+		max-width: 65ch;
+	}
+
+	section > h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+
+	.section-note {
+		margin: 0 0 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	.cards {
+		display: grid;
+		gap: 1rem;
+		margin: 0 0 2rem;
+		padding: 0;
+		list-style: none;
+	}
+
+	.sources {
+		color: var(--text-secondary);
+		font-size: 0.9rem;
+	}
+
+	.sources h2 {
+		font-size: 1rem;
+		color: var(--text-primary);
+	}
+
+	.sources ul {
+		padding-left: 1.25rem;
+	}
+</style>
